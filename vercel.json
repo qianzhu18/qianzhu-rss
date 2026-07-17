@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/folo.rss",
+      "destination": "/api/folo.rss"
+    },
+    {
+      "source": "/fast.rss",
+      "destination": "/api/folo.rss"
+    },
+    {
+      "source": "/read.rss",
+      "destination": "/api/folo.rss"
+    },
+    {
+      "source": "/full.rss",
+      "destination": "/api/full.rss"
+    },
+    {
+      "source": "/qianzhu.rss",
+      "destination": "/api/full.rss"
+    },
+    {
+      "source": "/",
+      "destination": "/api/folo.rss"
+    }
+  ]
+}

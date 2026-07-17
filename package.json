@@ -1,0 +1,9 @@
+{
+  "name": "werss-folo-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "vercel --prod --yes"
+  }
+}
