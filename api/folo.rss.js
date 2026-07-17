@@ -80,10 +80,21 @@ export default async function handler(req, res) {
     return res.status(405).end("Method Not Allowed");
   }
 
+  // ?fresh=1 → no-store (bypass CDN entirely). Otherwise CDN 1h + SWR 24h.
+  // CDN-Cache-Control is Vercel-specific and overrides CDN layer behavior,
+  // which Cache-Control alone cannot reliably do for Edge Functions.
+  const isFresh = req.query.fresh === "1";
+  const cc = isFresh
+    ? "no-store, max-age=0"
+    : "public, max-age=60, s-maxage=3600, stale-while-revalidate=86400";
+  const cdncc = isFresh ? "no-store" : "public, s-maxage=3600, stale-while-revalidate=86400";
+
+  res.setHeader("Content-Type", "application/rss+xml; charset=utf-8");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", cc);
+  res.setHeader("CDN-Cache-Control", cdncc);
+
   if (req.method === "HEAD") {
-    res.setHeader("Content-Type", "application/rss+xml; charset=utf-8");
-    res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
-    res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("X-Upstream-Status", "head-ok");
     return res.status(200).end();
   }
@@ -104,16 +115,10 @@ export default async function handler(req, res) {
     const upstreamXml = await upstream.text();
     const body = compactRss(upstreamXml);
 
-    res.setHeader("Content-Type", "application/rss+xml; charset=utf-8");
-    res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
-    res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("X-Upstream-Status", String(upstream.status));
 
     return res.status(upstream.status).send(body);
   } catch (error) {
-    res.setHeader("Content-Type", "application/rss+xml; charset=utf-8");
-    res.setHeader("Cache-Control", "public, s-maxage=600, stale-while-revalidate=86400");
-    res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("X-Upstream-Status", "snapshot");
     return res.status(200).send(SNAPSHOT_RSS);
   }

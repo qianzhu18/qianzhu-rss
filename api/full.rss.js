@@ -185,11 +185,21 @@ export default async function handler(req, res) {
     return res.status(405).end("Method Not Allowed");
   }
 
+  // ?fresh=1 → no-store (bypass CDN entirely). Otherwise CDN 5min + SWR 1h.
+  // CDN-Cache-Control is Vercel-specific and overrides CDN layer behavior,
+  // which Cache-Control alone cannot reliably do for Edge Functions.
+  const isFresh = req.query.fresh === "1";
+  const cc = isFresh
+    ? "no-store, max-age=0"
+    : "public, max-age=60, s-maxage=300, stale-while-revalidate=3600";
+  const cdncc = isFresh ? "no-store" : "public, s-maxage=300, stale-while-revalidate=3600";
+
   res.setHeader("Content-Type", "application/rss+xml; charset=utf-8");
   res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", cc);
+  res.setHeader("CDN-Cache-Control", cdncc);
 
   if (req.method === "HEAD") {
-    res.setHeader("Cache-Control", "public, s-maxage=1800, stale-while-revalidate=86400");
     res.setHeader("X-Upstream-Status", "head-ok");
     return res.status(200).end();
   }
@@ -198,7 +208,6 @@ export default async function handler(req, res) {
     const originXml = await fetchOriginXml();
     const originFullCount = countFullContent(originXml);
     if (originFullCount >= 1) {
-      res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
       res.setHeader("X-Upstream-Status", `origin-full-${originFullCount}`);
       return res.status(200).send(originXml);
     }
@@ -207,11 +216,9 @@ export default async function handler(req, res) {
     const fullCount = items.filter((item) => item.content && item.content.length > 1000).length;
     if (fullCount < 1) throw new Error("no full content");
 
-    res.setHeader("Cache-Control", "public, s-maxage=1800, stale-while-revalidate=86400");
     res.setHeader("X-Upstream-Status", `live-full-${fullCount}`);
     return res.status(200).send(renderRss(items));
   } catch {
-    res.setHeader("Cache-Control", "public, s-maxage=600, stale-while-revalidate=86400");
     res.setHeader("X-Upstream-Status", "full-snapshot");
     return res.status(200).send(FULL_SNAPSHOT_RSS);
   }
